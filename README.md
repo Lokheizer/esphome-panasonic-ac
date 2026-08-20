@@ -90,6 +90,33 @@ Examples:
 - If the temperature is actually lower than measured by the AC, set the difference as a negative offset.
   - E.g. actual temperature = 20°, AC measured temperature = 22° --> offset = -2°
 
+## Localized swing mode names
+
+The two swing selects (`horizontal_swing_select` / `vertical_swing_select`) always show
+their raw English option names in Home Assistant (`up`, `up_center`, `left_center`, ...).
+This is not a misconfiguration and there is no Home Assistant setting that fixes it.
+
+Home Assistant only translates entity states for which the *integration* ships
+translations. The ESPHome API carries no translation key, and the Home Assistant ESPHome
+integration assigns the option list verbatim. Note that the swing mode on the climate
+entity itself *is* translated, because it uses the standard climate enum - only the vane
+positions in the two selects are not.
+
+You can work around this with a localized template select in your ESPHome YAML. See
+`ac.localized_swing.yaml.example` for a complete, ready-to-use example:
+
+* Give the built-in swing selects an `id` and mark them `internal: true`, so they no
+  longer show up in Home Assistant
+* Add one `select: - platform: template` entity per axis carrying the localized labels
+* An `on_value` trigger forwards the option index from the built-in select to the
+  template select, and `set_action` maps it back
+
+Both directions map purely by list position, so there is no translation table to keep in
+sync - you only edit the labels. Keep the number and order of options unchanged.
+
+This fixes the language per device: the labels are compiled into the firmware, so
+changing them requires a reflash, and every Home Assistant user sees the same language.
+
 # Hardware installation
 
 [Hardware installation for DNSK-P11](README.DNSKP11.md)

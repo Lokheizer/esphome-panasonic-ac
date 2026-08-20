@@ -1,0 +1,98 @@
+# Localized swing mode names for esphome-panasonic-ac
+#
+# WHY THIS IS NEEDED
+# Home Assistant only translates entity states for which the *integration* ships
+# translations. The ESPHome API carries no translation key, and the Home Assistant
+# ESPHome integration assigns a select's option list verbatim. The swing selects
+# therefore always show their raw English values ("up", "up_center", "left_center", ...).
+#
+# Note that the swing mode on the climate entity itself IS translated by Home
+# Assistant, because it uses the standard climate enum. Only the vane positions
+# in the two select entities are not.
+#
+# HOW THIS WORKS
+# The built-in swing selects are hidden from Home Assistant (internal: true) and a
+# template select carrying localized labels is put in front of each one.
+#
+#   AC -> HA:  on_value on the built-in select forwards the option INDEX to the
+#              template select via publish_state(i)
+#   HA -> AC:  set_action looks the label's index up and forwards it back via
+#              make_call().set_index(...).perform()
+#
+# The mapping is purely positional, so there is no translation table to maintain -
+# you only ever edit the labels. publish_state() never calls control(), so the two
+# entities cannot trigger each other in a loop.
+#
+# IMPORTANT
+# * Only change the LABELS. The NUMBER and ORDER of options must stay exactly as
+#   below - they mirror HORIZONTAL_SWING_OPTIONS / VERTICAL_SWING_OPTIONS in
+#   components/panasonic_ac/climate.py and the mapping is by position.
+# * Do NOT shorten the lists for the DNSK-P11. Both AC types use the same option
+#   lists; removing entries would shift the index mapping. On the DNSK-P11 the
+#   entries marked below simply have no effect.
+# * The labels are compiled into the firmware, so changing them needs a reflash and
+#   every Home Assistant user sees the same language.
+# * Prefer `internal: true` over disabling the original entities in Home Assistant.
+#   Disabling them in HA would remove the source the template selects depend on.
+# * ESPHome defaults `initial_option` to the first entry of the list, so right after a
+#   boot the template select briefly shows that label until the AC reports its actual
+#   position. This only publishes a state, it never sends a command to the AC.
+#
+# The example below uses German labels. Merge these blocks into your ac.yaml.
+
+climate:
+  - platform: panasonic_ac
+    type: cnt
+    name: Panasonic AC
+
+    vertical_swing_select:
+      id: pana_vertical_swing_raw
+      name: "Panasonic AC Vertical Swing Mode"
+      internal: true
+      on_value:
+        - lambda: 'id(pana_vertical_swing).publish_state(i);'
+
+    horizontal_swing_select:
+      id: pana_horizontal_swing_raw
+      name: "Panasonic AC Horizontal Swing Mode"
+      internal: true
+      on_value:
+        - lambda: 'id(pana_horizontal_swing).publish_state(i);'
+
+select:
+  - platform: template
+    id: pana_vertical_swing
+    name: "Panasonic AC Vertikale Lamelle"
+    icon: mdi:arrow-up-down
+    # Order must match VERTICAL_SWING_OPTIONS in climate.py
+    options:
+      - "Schwenken"      # swing         (CZ-TACG1 only)
+      - "Automatisch"    # auto          (CZ-TACG1 only)
+      - "Oben"           # up
+      - "Oben-Mitte"     # up_center
+      - "Mitte"          # center
+      - "Unten-Mitte"    # down_center
+      - "Unten"          # down
+    set_action:
+      - lambda: |-
+          auto idx = id(pana_vertical_swing).index_of(x);
+          if (idx.has_value())
+            id(pana_vertical_swing_raw).make_call().set_index(idx.value()).perform();
+
+  - platform: template
+    id: pana_horizontal_swing
+    name: "Panasonic AC Horizontale Lamelle"
+    icon: mdi:arrow-left-right
+    # Order must match HORIZONTAL_SWING_OPTIONS in climate.py
+    options:
+      - "Automatisch"    # auto          (CZ-TACG1 only)
+      - "Links"          # left
+      - "Links-Mitte"    # left_center
+      - "Mitte"          # center
+      - "Rechts-Mitte"   # right_center
+      - "Rechts"         # right
+    set_action:
+      - lambda: |-
+          auto idx = id(pana_horizontal_swing).index_of(x);
+          if (idx.has_value())
+            id(pana_horizontal_swing_raw).make_call().set_index(idx.value()).perform();
